@@ -91,6 +91,12 @@ function tabsForUser(user) {
   return staffTabs.filter((tab) => tab !== "Mitarbeiter" && tab !== "Statistik");
 }
 
+// Pages alternate gold and sapphire in menu order, starting with gold; home and profile stay gold.
+function isSapphirePage(tab, user) {
+  const pages = tabsForUser(user).filter((t) => !["Home", "Dashboard", "Profil", "Login"].includes(t));
+  return pages.indexOf(tab) % 2 === 1;
+}
+
 function homeTab(user) {
   return user ? "Dashboard" : "Home";
 }
@@ -1515,6 +1521,7 @@ export default function App() {
         setPage={setActiveTab}
         unread={(data.notifications || []).filter((n) => !n.is_read).length}
         onLogout={logout}
+        sapphire={isSapphirePage(activeTab, user)}
         error={<ErrorBox error={error} onClose={() => setError("")} />}
       >
         {renderPage()}
@@ -1534,7 +1541,10 @@ export default function App() {
         user={user}
         notifications={data.notifications}
       />
-      <main className={activeTab === "Home" ? "main-home" : ""}>
+      <main
+        className={activeTab === "Home" ? "main-home" : ""}
+        data-accent={isSapphirePage(activeTab, user) ? "sapphire" : undefined}
+      >
         {showTitle && (
           <div className="page-head">
             <h1>

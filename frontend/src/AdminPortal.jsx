@@ -53,7 +53,7 @@ export const ADMIN_TITLES = Object.fromEntries(
 );
 
 /** Workspace for the studio management: sidebar navigation, page title and content. */
-export default function AdminPortal({ user, page, setPage, unread, onLogout, error, children }) {
+export default function AdminPortal({ user, page, setPage, unread, onLogout, sapphire, error, children }) {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
@@ -98,7 +98,7 @@ export default function AdminPortal({ user, page, setPage, unread, onLogout, err
         </div>
       </aside>
 
-      <main className="admin-main">
+      <main className="admin-main" data-accent={sapphire ? "sapphire" : undefined}>
         {page !== "Dashboard" && (
           <header className="admin-page-head">
             <h1>{ADMIN_TITLES[page]}</h1>

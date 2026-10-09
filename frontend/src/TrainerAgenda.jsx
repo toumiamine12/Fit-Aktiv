@@ -101,10 +101,13 @@ export default function TrainerAgenda({ data, user, refresh, showError }) {
 
   const days = useMemo(
     () =>
-      Array.from({ length: DAYS_AHEAD }, (_, i) => {
-        const iso = toIsoDate(addDays(toLocalDate(today), i));
-        return { iso, courses: mine.filter((c) => c.date === iso) };
-      }),
+      Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(toLocalDate(today), i))
+        // Trainers do not work on weekends, so Saturday and Sunday are left out.
+        .filter((d) => d.getDay() !== 0 && d.getDay() !== 6)
+        .map((d) => {
+          const iso = toIsoDate(d);
+          return { iso, courses: mine.filter((c) => c.date === iso) };
+        }),
     [mine, today],
   );
 

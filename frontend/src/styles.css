@@ -1,6 +1,7 @@
 /* Fit & Aktiv: dark and premium.
    Near-black page, charcoal panels, off-white text and one champagne-gold
-   accent for actions and markers (active tab, today, focus). */
+   accent for actions and markers (active tab, today, focus). Every second page
+   swaps the gold for a muted sapphire; the top bar always stays gold. */
 
 :root {
   color-scheme: dark;
@@ -42,6 +43,15 @@
   line-height: 1.5;
   color: var(--ink);
   background: var(--paper);
+}
+
+[data-accent="sapphire"] {
+  --brand: #7f9fd1;
+  --brand-hover: #a1b9e0;
+  --brand-light: #b7c9e8;
+  --brand-tint: rgba(127, 159, 209, 0.12);
+  --gold: #7f9fd1;
+  --gold-hover: #a1b9e0;
 }
 
 * {
@@ -4580,12 +4590,7 @@ button.course-block,
   vertical-align: 0.1em;
 }
 
-/* Flat cards instead of gradient glows. */
-.agenda-next {
-  background: var(--surface);
-  border-top-width: 1px;
-}
-
+/* Flat cards instead of gradient glows (the next-course card keeps its course tint). */
 .routine-card {
   background: var(--surface);
 }
