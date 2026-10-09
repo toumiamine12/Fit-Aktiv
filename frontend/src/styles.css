@@ -866,29 +866,6 @@ td.actions {
 .badge.orange { color: var(--amber); }
 .badge.red { color: var(--red); }
 
-/* ---------- Dashboard: lower panels ---------- */
-
-.quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.quick-actions button {
-  background: var(--surface);
-  color: var(--ink);
-  border-color: var(--rule-strong);
-  padding: 0.7rem 1.1rem;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .quick-actions button:hover {
-    border-color: var(--brand);
-    color: var(--brand);
-    background: var(--surface);
-  }
-}
-
 /* ---------- Forms (Kurse, Mitarbeiter, Studios) ---------- */
 
 .form-card {
@@ -946,74 +923,6 @@ td.actions {
 
 .panel-title > input {
   max-width: 320px;
-}
-
-.auth-note {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.75rem 0.9rem;
-  background: var(--paper);
-  border-radius: var(--radius-s);
-}
-
-.profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--rule);
-}
-
-.profile-grid > div {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.9rem 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.profile-grid strong {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.self-available-button {
-  display: block;
-  margin-top: 0.6rem;
-}
-
-/* ---------- Studios ---------- */
-
-.studio-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--rule);
-}
-
-.studio-card {
-  display: grid;
-  gap: 0.2rem;
-  align-content: start;
-  padding: 1rem 1rem 1.1rem 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.studio-card h3 {
-  font-size: 1.2rem;
-}
-
-.studio-card p {
-  margin: 0;
-  color: var(--ink-2);
-}
-
-.studio-card strong {
-  margin-top: 0.4rem;
-  font-weight: 600;
-}
-
-.studio-card small {
-  display: block;
 }
 
 /* ---------- Notifications ---------- */
@@ -2242,12 +2151,6 @@ input:disabled {
   gap: 1.75rem;
 }
 
-.agenda-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
-}
-
 .agenda-next {
   --edge: var(--gold);
   position: relative;
@@ -2291,11 +2194,6 @@ input:disabled {
 .agenda-next .occupancy {
   margin-top: 0.9rem;
   max-width: 360px;
-}
-
-.agenda-main {
-  display: grid;
-  gap: 1rem;
 }
 
 .agenda-stats {
@@ -2500,9 +2398,6 @@ input:disabled {
 }
 
 @media (max-width: 820px) {
-  .agenda-top {
-    grid-template-columns: 1fr;
-  }
 
   .agenda-item {
     grid-template-columns: 60px minmax(0, 1fr);
@@ -2705,11 +2600,6 @@ input:disabled {
 
 .availability h2 {
   margin: 0;
-}
-
-.availability-intro {
-  margin: 0;
-  color: var(--ink-2);
 }
 
 .availability-person {
@@ -3449,34 +3339,6 @@ input:disabled {
 
 .membership > .muted {
   margin: 0;
-}
-
-.membership-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.membership-label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.membership-head h2 {
-  margin: 0.15rem 0;
-  font-size: 2rem;
-}
-
-.membership-head h2 small {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--gold);
-}
-
-.membership-head p {
-  margin: 0;
-  color: var(--ink-2);
 }
 
 .membership-pending {
@@ -4634,8 +4496,7 @@ button.course-block,
 .overview-big,
 .plan-price,
 .training-types strong,
-.membership-plan small,
-.membership-head h2 small {
+.membership-plan small {
   color: var(--ink);
 }
 
@@ -4805,103 +4666,6 @@ button.course-block,
 }
 
 /* ---------- Statistik ---------- */
-.stats-page {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.stats-strip {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-}
-
-.stats-grid .panel {
-  margin: 0;
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-
-.stats-grid h2 {
-  margin: 0;
-}
-
-.stats-note {
-  margin: 0;
-  font-size: 0.88rem;
-}
-
-.stats-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  height: 220px;
-  padding-top: 1.4rem;
-}
-
-.stats-bar-col {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.stats-bar {
-  width: 100%;
-  min-height: 3px;
-  border-radius: 4px 4px 0 0;
-  background: var(--gold);
-}
-
-.stats-bar-value {
-  font-size: 0.75rem;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.stats-bar-col small {
-  color: var(--text-muted);
-}
-
-.stats-plans,
-.stats-studios {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.7rem;
-}
-
-.stats-plans li {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr) 2.5rem 7rem;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.stats-studios li {
-  display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr) 4rem;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.92rem;
-}
-
-.stats-plans strong,
-.stats-studios strong,
-.stats-plans small {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 
 .stats-heat {
   display: grid;
@@ -4932,30 +4696,6 @@ button.course-block,
 
 .stats-heat-cell[data-empty] {
   background: var(--surface-2);
-}
-
-@media (max-width: 1100px) {
-  .stats-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .stats-strip {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .stats-plans li {
-    grid-template-columns: 4.5rem minmax(0, 1fr) 2rem;
-  }
-
-  .stats-plans small {
-    display: none;
-  }
 }
 
 /* ---------- E-Mail outbox ---------- */
@@ -5645,9 +5385,6 @@ button.course-block,
     display: none;
   }
 
-  .stats-strip > div:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
 }
 
 /* =========================================================
@@ -5903,16 +5640,6 @@ button.course-block,
   }
 }
 
-.admin-note {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--ink-2);
-}
-
-p.muted.admin-note {
-  margin-top: -0.4rem;
-}
-
 .admin-facts {
   margin: 0;
   display: grid;
@@ -5947,72 +5674,6 @@ p.muted.admin-note {
 
 .admin-facts dd.warn {
   color: var(--amber);
-}
-
-.stats-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.stats-actions p {
-  margin: 0;
-}
-
-.stats-table td,
-.stats-table th {
-  font-variant-numeric: tabular-nums;
-}
-
-.stats-table td:not(:first-child),
-.stats-table th:not(:first-child) {
-  text-align: right;
-}
-
-.stats-ranking {
-  margin: 0;
-  padding-left: 1.4rem;
-  display: grid;
-  gap: 0.2rem;
-}
-
-.stats-ranking li {
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.stats-ranking li > * {
-  vertical-align: baseline;
-}
-
-.stats-ranking li span {
-  display: inline-grid;
-  min-width: 55%;
-}
-
-.stats-ranking li strong {
-  display: inline-block;
-  min-width: 4.5rem;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Statistik panels keep their natural height; the course-type table fits its panel. */
-.stats-grid {
-  align-items: start;
-}
-
-.stats-table {
-  width: 100%;
-  min-width: 0;
-  font-size: 0.9rem;
-}
-
-.stats-table th,
-.stats-table td {
-  padding: 0.55rem 0.4rem;
-  white-space: nowrap;
 }
 
 /* Finanzbericht page: document on the left, tools on the right */

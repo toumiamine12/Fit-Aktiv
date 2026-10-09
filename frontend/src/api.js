@@ -91,7 +91,6 @@ export const api = {
   createCourse: (payload) => request('/courses', { method: 'POST', body: JSON.stringify(payload) }),
   generateWeekCourses: (week_start) => request('/courses/generate-week', { method: 'POST', body: JSON.stringify({ week_start }) }),
   generateYearCourses: (year) => request('/courses/generate-year', { method: 'POST', body: JSON.stringify({ year }) }),
-  updateCourse: (id, payload) => request(`/courses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteCourse: (id) => request(`/courses/${id}`, { method: 'DELETE' }),
   assignCourse: (id, trainer_id) => request(`/courses/${id}/assign`, { method: 'POST', body: JSON.stringify({ trainer_id }) }),
   cancelCourse: (id) => request(`/courses/${id}/cancel`, { method: 'POST' }),
