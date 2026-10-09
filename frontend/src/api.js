@@ -24,6 +24,11 @@ async function request(path, options = {}) {
   if (auth?.token) headers.Authorization = `Bearer ${auth.token}`
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   const data = await res.json().catch(() => ({}))
+  if (res.status === 401 && auth?.token) {
+    // Token expired or invalid: drop the session and show the login again.
+    setStoredAuth(null)
+    window.location.reload()
+  }
   if (!res.ok || data.ok === false) {
     // A list of reasons belongs in the message; a details object (e.g. the member at a refused check-in) travels on the error.
     const detail = Array.isArray(data.details) ? ` ${data.details.join(' ')}` : ''

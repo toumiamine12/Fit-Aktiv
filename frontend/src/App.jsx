@@ -829,7 +829,7 @@ function EmployeeForm({ data, onCreate }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    password: "pass123",
+    password: "",
     role: "trainer",
     qualifications: "Yoga,Pilates",
     employment_model: "Teilzeit",
@@ -839,7 +839,7 @@ function EmployeeForm({ data, onCreate }) {
   const submit = async (e) => {
     e.preventDefault();
     await onCreate({ ...form, home_studio_id: Number(form.home_studio_id) });
-    setForm({ ...form, name: "", email: "" });
+    setForm({ ...form, name: "", email: "", password: "" });
   };
   return (
     <form className="form-card employee-form" onSubmit={submit}>
@@ -864,6 +864,10 @@ function EmployeeForm({ data, onCreate }) {
       <label>
         Passwort{" "}
         <input
+          required
+          type="password"
+          minLength={8}
+          autoComplete="new-password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
@@ -1353,8 +1357,8 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
                 <input required type="email" autoComplete="email" value={registration.email} onChange={reg("email")} />
               </label>
               <label>
-                <span>Passwort <small>(mindestens 6 Zeichen)</small></span>
-                <input required type="password" minLength={6} autoComplete="new-password" value={registration.password} onChange={reg("password")} />
+                <span>Passwort <small>(mindestens 8 Zeichen)</small></span>
+                <input required type="password" minLength={8} autoComplete="new-password" value={registration.password} onChange={reg("password")} />
               </label>
               <label>
                 Ihr Studio

@@ -5,12 +5,14 @@ import random
 import base64
 import hashlib
 import hmac
+import time
 from functools import wraps
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
     EXPENSE_CATEGORIES,
@@ -19,6 +21,7 @@ from database import (
     availability_bounds,
     default_availability,
     get_db,
+    hash_plaintext_passwords,
     init_db,
     now_iso,
     MEMBERSHIP_TYPES,
@@ -41,9 +44,14 @@ AUTH_SECRET = os.environ.get("FITAKTIV_AUTH_SECRET", "fit-aktiv-local-dev-secret
 STAFF_ROLES = ["admin", "trainer"]
 
 
+TOKEN_TTL_SECONDS = 7 * 24 * 3600
+MIN_PASSWORD_LENGTH = 8
+
+
 def make_token(user_id: int, kind: str = "employee") -> str:
-    # "m:<id>" marks a member account; plain ids are employees (also older tokens).
-    payload = (f"m:{user_id}" if kind == "member" else str(user_id)).encode("utf-8")
+    # "m:<id>" marks a member account, plain ids are employees; "|<unix time>" is the expiry.
+    subject = f"m:{user_id}" if kind == "member" else str(user_id)
+    payload = f"{subject}|{int(time.time()) + TOKEN_TTL_SECONDS}".encode("utf-8")
     body = base64.urlsafe_b64encode(payload).decode("utf-8").rstrip("=")
     sig = hmac.new(AUTH_SECRET.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{body}.{sig}"
@@ -62,7 +70,9 @@ def current_user_from_request(conn=None):
         return None
     try:
         padded = body + "=" * (-len(body) % 4)
-        subject = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
+        subject, expires = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8").split("|")
+        if int(expires) < time.time():
+            return None
         is_member = subject.startswith("m:")
         user_id = int(subject[2:] if is_member else subject)
     except Exception:
@@ -101,6 +111,18 @@ def require_auth(roles=None):
             return fn(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def password_error(password: str) -> Optional[str]:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Das Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein."
+    return None
+
+
+# ponytail: in-memory and per process, resets on restart; move to the DB or Redis when running several workers.
+LOGIN_MAX_FAILURES = 5
+LOGIN_LOCK_SECONDS = 15 * 60
+login_failures: Dict[Tuple[str, str], List[float]] = {}
 
 
 def without_password(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -698,11 +720,19 @@ def login():
     password = payload.get("password") or ""
     kind = "member" if payload.get("account_type") == "member" else "employee"
     table = "members" if kind == "member" else "employees"
+    key = (request.remote_addr or "", email)
+    now = time.time()
+    recent = [t for t in login_failures.get(key, []) if now - t < LOGIN_LOCK_SECONDS]
+    if len(recent) >= LOGIN_MAX_FAILURES:
+        login_failures[key] = recent
+        return json_error("Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.", 429)
     conn = get_db()
-    row = conn.execute(f"SELECT * FROM {table} WHERE lower(email) = ? AND password = ?", (email, password)).fetchone()
+    row = conn.execute(f"SELECT * FROM {table} WHERE lower(email) = ?", (email,)).fetchone()
     conn.close()
-    if not row:
+    if not row or not check_password_hash(row["password"], password):
+        login_failures[key] = recent + [now]
         return json_error("Login fehlgeschlagen. Prüfe E-Mail und Passwort.", 401)
+    login_failures.pop(key, None)
     user = without_password(row)
     if kind == "member":
         user["role"] = "member"
@@ -725,8 +755,8 @@ def register_member():
         return json_error("Pflichtfelder fehlen.", details=missing)
     if "@" not in email:
         return json_error("Bitte eine gültige E-Mail-Adresse eingeben.")
-    if len(password) < 6:
-        return json_error("Das Passwort muss mindestens 6 Zeichen lang sein.")
+    if password_error(password):
+        return json_error(password_error(password))
     conn = get_db()
     if conn.execute("SELECT 1 FROM members WHERE lower(email) = ?", (email,)).fetchone():
         conn.close()
@@ -740,7 +770,7 @@ def register_member():
                              membership_type, member_since, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (name, email, password, p.get("phone") or None, p.get("birth_date") or None,
+        (name, email, generate_password_hash(password), p.get("phone") or None, p.get("birth_date") or None,
          p.get("address") or None, int(p["home_studio_id"]),
          p.get("membership_type") if p.get("membership_type") in MEMBERSHIPS else "plus",
          date.today().isoformat(), now_iso()),
@@ -773,10 +803,10 @@ def update_own_profile(table: str, allowed: List[str]):
             fields.append(f"{key} = ?")
             values.append(p[key] or None)
     if p.get("new_password"):
-        if len(p["new_password"]) < 6:
-            return json_error("Das neue Passwort muss mindestens 6 Zeichen lang sein.")
+        if password_error(p["new_password"]):
+            return json_error(password_error(p["new_password"]))
         fields.append("password = ?")
-        values.append(p["new_password"])
+        values.append(generate_password_hash(p["new_password"]))
     if "name" in p and not (p.get("name") or "").strip():
         return json_error("Name darf nicht leer sein.")
     if not fields:
@@ -2153,10 +2183,12 @@ def create_trial_request():
 @require_auth(["admin"])
 def create_employee():
     p = request.get_json(force=True) or {}
-    required = ["name", "email", "qualifications", "employment_model", "home_studio_id"]
+    required = ["name", "email", "password", "qualifications", "employment_model", "home_studio_id"]
     missing = [k for k in required if not p.get(k)]
     if missing:
         return json_error("Pflichtfelder fehlen.", details=missing)
+    if password_error(p["password"]):
+        return json_error(password_error(p["password"]))
     employment_model = p.get("employment_model")
     weekly_hours = 40 if employment_model == "Vollzeit" else 10
     max_courses = 20 if employment_model == "Vollzeit" else 6
@@ -2172,7 +2204,7 @@ def create_employee():
             (
                 p["name"],
                 p["email"],
-                p.get("password") or "pass123",
+                generate_password_hash(p["password"]),
                 p.get("role") or "trainer",
                 p["qualifications"],
                 employment_model,
@@ -2219,6 +2251,10 @@ def update_employee(employee_id: int):
                 raise ValueError
         except (TypeError, ValueError):
             return json_error("Bitte ein gültiges Monatsgehalt angeben.")
+    if "password" in p:
+        if password_error(p["password"] or ""):
+            return json_error(password_error(p["password"] or ""))
+        p["password"] = generate_password_hash(p["password"])
     fields, values = [], []
     for key in allowed:
         if key in p:
@@ -3245,6 +3281,7 @@ if __name__ == "__main__":
     seed_demo_trials(conn)
     seed_demo_member_base(conn)
     seed_demo_expenses(conn)
+    hash_plaintext_passwords(conn)
     conn.close()
     if demo_bookings:
         print(f"Demo-Mitglieder angelegt: {demo_bookings} Buchungen.")

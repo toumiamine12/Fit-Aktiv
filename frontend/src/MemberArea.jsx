@@ -631,7 +631,7 @@ function PasswordBox({ staff, showError }) {
         <input
           type="password"
           autoComplete="new-password"
-          minLength={6}
+          minLength={8}
           required
           value={password}
           onChange={(e) => {
@@ -639,14 +639,14 @@ function PasswordBox({ staff, showError }) {
             setSaved(false);
           }}
         />
-        <small>Mindestens 6 Zeichen.</small>
+        <small>Mindestens 8 Zeichen.</small>
       </label>
       <label>
         Passwort wiederholen
         <input
           type="password"
           autoComplete="new-password"
-          minLength={6}
+          minLength={8}
           required
           value={repeat}
           onChange={(e) => setRepeat(e.target.value)}

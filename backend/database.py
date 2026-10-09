@@ -5,6 +5,8 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from werkzeug.security import generate_password_hash
+
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "fitaktiv.db"
 
@@ -786,6 +788,19 @@ def backfill_memberships(cur):
             "UPDATE members SET member_since = ?, membership_type = ? WHERE id = ?",
             (start.isoformat(), MEMBERSHIP_TYPES[m["id"] % len(MEMBERSHIP_TYPES)], m["id"]),
         )
+
+
+def hash_plaintext_passwords(conn):
+    """Replaces stored plain-text passwords (old databases, demo seeds) with salted scrypt hashes."""
+    for table in ("members", "employees"):
+        plain = conn.execute(
+            f"SELECT DISTINCT password FROM {table} WHERE password NOT LIKE 'scrypt:%' AND password NOT LIKE 'pbkdf2:%'"
+        ).fetchall()
+        # ponytail: one hash per distinct old password (all demo rows share 'pass123', 25k rows x 60 ms
+        # would block startup), so equal old passwords share a salt; new and changed passwords get their own.
+        for (password,) in plain:
+            conn.execute(f"UPDATE {table} SET password = ? WHERE password = ?", (generate_password_hash(password), password))
+    conn.commit()
 
 
 def add_column_if_missing(conn, table: str, column: str, definition: str):
