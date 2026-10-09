@@ -1,0 +1,17 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node / Vite
+node_modules/
+dist/
+
+# Local SQLite database (created automatically on first backend start)
+backend/fitaktiv.db
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
