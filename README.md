@@ -57,9 +57,6 @@ The demo database contains 22 studios, 44 rooms, 110 staff accounts, 5 course ty
 about **25,000 members**, roughly **11,500 generated courses** for the current year,
 19,000 bookings and a year of expenses.
 
-> The user interface is in German, as the product targets gyms in Germany. The
-> code and this documentation are in English.
-
 ## Features
 
 ### Public website
@@ -162,7 +159,7 @@ Tailwind utilities without conflicts. The layout is responsive down to 390 px ph
 | **Public timetable** | **Trial-session request** |
 | ![Timetable](docs/screenshots/04-public-timetable.jpg) | ![Trial session](docs/screenshots/05-trial-session.jpg) |
 | **Login (members and staff)** | **Mobile** |
-| ![Login](docs/screenshots/06-login.jpg) | <img src="docs/screenshots/13-mobile-home.jpg" width="190" /> <img src="docs/screenshots/14-mobile-timetable.jpg" width="190" /> |
+| ![Login](docs/screenshots/06-login.jpg) | <img src="docs/screenshots/13-mobile-home.jpg" width="190" />  |
 
 ### Member area
 
