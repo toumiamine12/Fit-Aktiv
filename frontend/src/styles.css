@@ -910,7 +910,8 @@ td.actions {
 }
 
 .form-card.warning {
-  border-top: 4px solid var(--amber-edge);
+  /* Page accent, so the sick-note card matches gold or sapphire pages. */
+  border-top: 4px solid var(--gold);
 }
 
 .generator-card {
