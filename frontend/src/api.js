@@ -88,4 +88,5 @@ export const api = {
   getReplacements: (courseId) => request(`/replacements?course_id=${courseId}`),
   createStudio: (payload) => request('/studios', { method: 'POST', body: JSON.stringify(payload) }),
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
 }

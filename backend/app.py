@@ -3181,6 +3181,24 @@ def create_studio():
     return jsonify({"ok": True, "id": studio_id})
 
 
+@app.route("/api/notifications/read-all", methods=["POST"])
+@require_auth(STAFF_ROLES + ["member"])
+def mark_all_notifications_read():
+    # Same set the user sees in /api/data: the admin all staff messages, everyone else their own.
+    role = g.current_user.get("role")
+    if role == "admin":
+        where, params = "recipient_member_id IS NULL", ()
+    elif role == "member":
+        where, params = "recipient_member_id = ?", (g.current_user.get("id"),)
+    else:
+        where, params = "recipient_employee_id = ?", (g.current_user.get("id"),)
+    conn = get_db()
+    conn.execute(f"UPDATE notifications SET is_read = 1 WHERE is_read = 0 AND {where}", params)
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/notifications/<int:notification_id>/read", methods=["POST"])
 @require_auth(STAFF_ROLES + ["member"])
 def mark_notification_read(notification_id: int):

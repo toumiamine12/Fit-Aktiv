@@ -1181,8 +1181,23 @@ function Notifications({ data, refresh, showError, user }) {
       showError(e.message);
     }
   }
+  async function readAll() {
+    try {
+      await api.markAllNotificationsRead();
+      await refresh();
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+  const unread = (data.notifications || []).filter((n) => !n.is_read).length;
   return (
     <section className="panel wide">
+      <div className="panel-title notifications-head">
+        <span className="muted">{unread ? `${unread} ungelesen` : "Alles gelesen"}</span>
+        <button className="secondary" onClick={readAll} disabled={!unread}>
+          Alle als gelesen markieren
+        </button>
+      </div>
       <div className="notifications">
         {data.notifications?.map((n) => (
           <div key={n.id} className={`notification ${n.is_read ? "read" : ""}`}>
