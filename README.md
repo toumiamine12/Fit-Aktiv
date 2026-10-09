@@ -82,7 +82,8 @@ about **25,000 members**, roughly **11,500 generated courses** for the current y
   year) and a **digital membership card with QR code**
 
 ### Trainer workspace
-- Personal timetable with the next course, a two-week calendar and a month overview
+- Personal timetable with the next course (tinted in its course colour), a two-week
+  calendar of working days (Monday to Friday) and a month overview
 - **Weekly availability** for the next four weeks, checked against contract hours
 - **Leave requests** with admin approval, and sick notes with automatic replacement search
 - **QR check-in**: scan the members' cards with the phone camera, or tick them off by hand
@@ -130,10 +131,16 @@ in-memory indexes for availability, absences, weekly and monthly load and daily
 time slots, instead of one database query per check.
 
 **Two kinds of accounts on one token system.** Login tokens are signed with
-HMAC-SHA256. Member tokens are marked separately from staff tokens because both
+HMAC-SHA256 and expire after 7 days. Member tokens are marked separately from staff tokens because both
 tables use overlapping IDs, so a member can never reach a staff endpoint.
 `/api/data` only returns what the caller may see: visitors get no staff data,
 members get their own profile and bookings, and admins get everything.
+
+**Password security.** Passwords are never stored in plain text: they are saved
+as salted scrypt hashes (`werkzeug.security`) on registration, password change and
+when an admin creates staff. New passwords need at least 8 characters. After 5 failed
+logins for the same e-mail and IP address, further attempts are blocked for 15 minutes.
+When a token expires, the frontend ends the session and shows the login again.
 
 **Finance from the operational data.** Revenue comes from each member's plan and
 pauses per month; costs are salaries plus the employer's social security share
@@ -142,12 +149,18 @@ numbers feed the overview, the statistics and the BWA, so they always agree.
 Salaries are never sent to trainers.
 
 **Safe schema migrations.** Existing databases are upgraded on startup (new
-columns, map coordinates, member logins), so old data keeps working.
+columns, map coordinates, member logins, plain-text passwords converted to hashes),
+so old data keeps working.
 
 **Frontend.** React 19 with Vite 8, Tailwind CSS 4 and shadcn, plus selected
 components from the [Componentry](https://componentry.fun) registry. The
 original stylesheet is loaded into a CSS cascade layer, so it coexists with
 Tailwind utilities without conflicts. The layout is responsive down to 390 px phone width.
+
+**Two accent colours.** The design uses champagne gold and a muted sapphire blue.
+Pages alternate between the two in menu order, starting with gold, and each page
+uses its colour throughout (buttons, links, active states, dialogs). The top bar and
+the admin sidebar always stay gold, so the brand stays constant.
 
 ## Screenshots
 
@@ -196,7 +209,7 @@ Tailwind utilities without conflicts. The layout is responsive down to 390 px ph
 | Frontend | React 19, Vite 8, Tailwind CSS 4, shadcn, Componentry components, Framer Motion, GSAP, Leaflet, lucide icons |
 | Backend | Python 3, Flask 3, Flask-CORS, REST/JSON API |
 | Database | SQLite (18 tables with foreign keys, created and migrated automatically) |
-| Auth | HMAC-SHA256 signed bearer tokens, role checks per endpoint |
+| Auth | Salted scrypt password hashes, HMAC-SHA256 signed bearer tokens with expiry, login rate limiting, role checks per endpoint |
 | Maps and media | OpenStreetMap tiles, Unsplash photography |
 
 ## Architecture
@@ -300,7 +313,8 @@ delete the file and start the backend again.
 
 ## Demo accounts
 
-All demo accounts use the password **`pass123`**.
+All demo accounts use the password **`pass123`**. Passwords you set yourself
+(registration, password change, new staff) need at least 8 characters.
 
 | Role | E-mail |
 |---|---|
@@ -315,7 +329,7 @@ Choose **Mitglied** (member) or **Mitarbeiter** (staff) on the login page.
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
 | `GET` | `/api/data` | everyone (filtered by role) | Studios, rooms, courses, stats, plus role-specific data |
-| `POST` | `/api/login` | everyone | Log in as member or employee |
+| `POST` | `/api/login` | everyone | Log in as member or employee (rate limited) |
 | `POST` | `/api/members/register` | everyone | Create a member account |
 | `PATCH` | `/api/members/me` | member | Update own profile and password |
 | `POST`, `DELETE` | `/api/courses/<id>/booking` | member | Book or cancel a course place |
