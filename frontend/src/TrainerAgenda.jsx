@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { downloadCoursesIcs } from "./calendar.js";
 import StaffCourseDialog from "./CourseDialog.jsx";
 import { courseColorClass, isOwnAbsentCourse } from "./courses.jsx";
 import MonthOverview from "./MonthOverview.jsx";
@@ -136,6 +137,11 @@ export default function TrainerAgenda({ data, user, refresh, showError }) {
   const [selected, setSelected] = useState(null);
   const day = days.find((d) => d.iso === (selected || firstBusy)) || days[0];
 
+  // All upcoming shifts (not only the two weeks shown) for the calendar export.
+  const allUpcoming = (data.courses || []).filter(
+    (c) => String(c.trainer_id) === String(user.id) && c.status !== "cancelled" && c.date >= today,
+  );
+
   const weekEnd = toIsoDate(addDays(now, 6));
   const weekCount = teaching.filter((c) => c.date <= weekEnd).length;
   const subCount = teaching.filter((c) => c.absent_trainer_id).length;
@@ -248,6 +254,15 @@ export default function TrainerAgenda({ data, user, refresh, showError }) {
               <dd>{rating.count ? `★ ${rating.avg.toLocaleString("de-DE", { maximumFractionDigits: 1 })}` : "–"}</dd>
             </div>
           </dl>
+          {allUpcoming.length > 0 && (
+            <button
+              className="secondary"
+              onClick={() => downloadCoursesIcs(allUpcoming, "fit-aktiv-schichten.ics")}
+              title="Eine .ics-Datei mit allen anstehenden Kursen für Google, Apple oder Outlook"
+            >
+              Alle Schichten in Kalender eintragen
+            </button>
+          )}
         </aside>
       </div>
 

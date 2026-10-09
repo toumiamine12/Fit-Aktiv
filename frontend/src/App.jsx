@@ -1257,7 +1257,10 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
   const [accountType, setAccountType] = useState(
     user && !isMember(user) ? "employee" : "member",
   );
-  const [mode, setMode] = useState("login");
+  // ?reset=<token> comes from the password reset e-mail.
+  const resetToken = new URLSearchParams(window.location.search).get("reset");
+  const [mode, setMode] = useState(resetToken ? "reset" : "login");
+  const [notice, setNotice] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registration, setRegistration] = useState({
@@ -1283,7 +1286,16 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
     e.preventDefault();
     setBusy(true);
     try {
-      if (registering) {
+      if (mode === "forgot") {
+        await api.requestPasswordReset(email, accountType);
+        setNotice("Falls ein Konto mit dieser E-Mail existiert, haben wir Ihnen einen Link geschickt.");
+      } else if (mode === "reset") {
+        await api.confirmPasswordReset(resetToken, password);
+        window.history.replaceState(null, "", window.location.pathname);
+        setPassword("");
+        setMode("login");
+        setNotice("Ihr Passwort wurde geändert. Sie können sich jetzt anmelden.");
+      } else if (registering) {
         await signIn(
           await api.registerMember({
             ...registration,
@@ -1309,7 +1321,15 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
   function chooseType(type) {
     setAccountType(type);
     setMode("login");
+    setNotice("");
   }
+
+  const formTitle = registering
+    ? "Konto erstellen"
+    : { login: "Anmelden", forgot: "Passwort vergessen", reset: "Neues Passwort festlegen" }[mode];
+  const submitLabel = registering
+    ? "Konto erstellen"
+    : { login: "Anmelden", forgot: "Link senden", reset: "Passwort speichern" }[mode];
 
   const reg = (key) => (e) =>
     setRegistration({ ...registration, [key]: e.target.value });
@@ -1351,7 +1371,12 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
           </button>
         </div>
         <form className="login-form" onSubmit={submit}>
-          <h2>{registering ? "Konto erstellen" : "Anmelden"}</h2>
+          <h2>{formTitle}</h2>
+          {notice && (
+            <p className="saved-note" role="status">
+              {notice}
+            </p>
+          )}
           {registering ? (
             <>
               <label>
@@ -1390,20 +1415,44 @@ function Login({ user, data, setAuth, setActiveTab, showError, refresh }) {
             </>
           ) : (
             <>
-              <label>
-                E-Mail
-                <input required type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </label>
-              <label>
-                Passwort
-                <input required type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </label>
+              {mode !== "reset" && (
+                <label>
+                  E-Mail
+                  <input required type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </label>
+              )}
+              {mode === "login" && (
+                <label>
+                  Passwort
+                  <input required type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </label>
+              )}
+              {mode === "reset" && (
+                <label>
+                  <span>Neues Passwort <small>(mindestens 8 Zeichen)</small></span>
+                  <input required type="password" minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </label>
+              )}
             </>
           )}
           <button type="submit" disabled={busy}>
-            {registering ? "Konto erstellen" : "Anmelden"}
+            {submitLabel}
           </button>
-          {accountType === "member" && (
+          {mode === "login" && (
+            <p className="form-switch">
+              <button type="button" className="text-link" onClick={() => { setMode("forgot"); setNotice(""); }}>
+                Passwort vergessen?
+              </button>
+            </p>
+          )}
+          {(mode === "forgot" || mode === "reset") && (
+            <p className="form-switch">
+              <button type="button" className="text-link" onClick={() => { setMode("login"); setNotice(""); }}>
+                Zurück zur Anmeldung
+              </button>
+            </p>
+          )}
+          {accountType === "member" && (mode === "login" || mode === "register") && (
             <p className="form-switch">
               {registering ? "Schon Mitglied?" : "Noch kein Konto?"}{" "}
               <button
@@ -1425,7 +1474,9 @@ export default function App() {
   const [auth, setAuth] = useState(() => getStoredAuth());
   const user = auth?.user || null;
   const userKey = user ? `${user.role}:${user.id}` : "";
-  const [activeTab, setActiveTab] = useState(() => homeTab(auth?.user));
+  const [activeTab, setActiveTab] = useState(() =>
+    new URLSearchParams(window.location.search).has("reset") ? "Login" : homeTab(auth?.user),
+  );
   const [data, setData] = useState(emptyData);
   const [error, setError] = useState("");
 
@@ -1443,10 +1494,20 @@ export default function App() {
     }
   }
 
+  // Polls the tiny /api/revision every 2 s and only downloads the full data when the database changed.
+  const revision = useRef("");
+  async function sync(silent) {
+    const rev = await api.getRevision().then((r) => JSON.stringify(r.revision)).catch(() => "");
+    if (rev && rev === revision.current) return;
+    revision.current = rev;
+    await refresh(silent);
+  }
+
   useEffect(() => {
     if (!canOpenTab(activeTab, user)) setActiveTab(homeTab(user));
-    refresh();
-    const id = setInterval(() => refresh(true), 2000);
+    revision.current = "";
+    sync(false);
+    const id = setInterval(() => sync(true), 2000);
     return () => clearInterval(id);
   }, [userKey]);
 

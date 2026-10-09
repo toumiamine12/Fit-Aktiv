@@ -606,6 +606,7 @@ export function MyCourses({ data, refresh, showError, setActiveTab }) {
 }
 
 function PasswordBox({ staff, showError }) {
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [saved, setSaved] = useState(false);
@@ -614,7 +615,11 @@ function PasswordBox({ staff, showError }) {
     e.preventDefault();
     if (password !== repeat) return showError("Die beiden Passwörter stimmen nicht überein.");
     try {
-      await (staff ? api.updateEmployeeProfile : api.updateOwnProfile)({ new_password: password });
+      await (staff ? api.updateEmployeeProfile : api.updateOwnProfile)({
+        current_password: current,
+        new_password: password,
+      });
+      setCurrent("");
       setPassword("");
       setRepeat("");
       setSaved(true);
@@ -626,6 +631,19 @@ function PasswordBox({ staff, showError }) {
   return (
     <form className="panel profile-box profile-form" onSubmit={submit}>
       <h2>Passwort ändern</h2>
+      <label>
+        Aktuelles Passwort
+        <input
+          type="password"
+          autoComplete="current-password"
+          required
+          value={current}
+          onChange={(e) => {
+            setCurrent(e.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
       <label>
         Neues Passwort
         <input

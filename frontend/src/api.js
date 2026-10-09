@@ -41,8 +41,13 @@ async function request(path, options = {}) {
 
 export const api = {
   getData: () => request('/data'),
+  getRevision: () => request('/revision'),
   login: (email, password, account_type = 'employee') =>
     request('/login', { method: 'POST', body: JSON.stringify({ email, password, account_type }) }),
+  requestPasswordReset: (email, account_type) =>
+    request('/password-reset', { method: 'POST', body: JSON.stringify({ email, account_type }) }),
+  confirmPasswordReset: (token, password) =>
+    request('/password-reset/confirm', { method: 'POST', body: JSON.stringify({ token, password }) }),
   registerMember: (payload) => request('/members/register', { method: 'POST', body: JSON.stringify(payload) }),
   updateOwnProfile: (payload) => request('/members/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   updateEmployeeProfile: (payload) => request('/employees/me', { method: 'PATCH', body: JSON.stringify(payload) }),

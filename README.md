@@ -68,7 +68,8 @@ about **25,000 members**, roughly **11,500 generated courses** for the current y
 - **Trial-session form**: saved in the database and delivered to admins as a notification
 
 ### Member area
-- Self-service **registration** and login (separate from staff accounts)
+- Self-service **registration** and login (separate from staff accounts), and
+  **password reset by e-mail** with a one-time link (also for staff)
 - Opens on the **timetable of the member's home studio**, with filters and favourites
 - **Course booking** in a dialog showing time, room, trainer and free places
 - **Waiting list** with automatic promotion and a 2-hour cancellation deadline
@@ -87,6 +88,7 @@ about **25,000 members**, roughly **11,500 generated courses** for the current y
 - **Weekly availability** for the next four weeks, checked against contract hours
 - **Leave requests** with admin approval, and sick notes with automatic replacement search
 - **QR check-in**: scan the members' cards with the phone camera, or tick them off by hand
+- **Calendar export** (.ics) of all upcoming shifts for Google, Apple or Outlook
 - Participant list per course and messages to all participants
 
 ### Admin portal
@@ -104,8 +106,9 @@ about **25,000 members**, roughly **11,500 generated courses** for the current y
   report German accountants use) as a two-page A4 PDF, with income statement,
   cost centres per studio and VAT; expenses such as maintenance and repairs are recorded on the same page
 - **Email outbox** (simulated locally) for waiting-list promotions, trainer changes and cancellations
-- **Live sync**: the UI refreshes every 2 seconds, so edits made directly in the
-  SQLite file (e.g. in *DB Browser for SQLite*) appear on the site almost immediately
+- **Live sync**: the UI checks a tiny revision endpoint every 2 seconds and only reloads
+  the data when something changed, so edits made directly in the SQLite file
+  (e.g. in *DB Browser for SQLite*) appear on the site almost immediately
 
 ## Technical highlights
 
@@ -141,6 +144,15 @@ as salted scrypt hashes (`werkzeug.security`) on registration, password change a
 when an admin creates staff. New passwords need at least 8 characters. After 5 failed
 logins for the same e-mail and IP address, further attempts are blocked for 15 minutes.
 When a token expires, the frontend ends the session and shows the login again.
+Changing a password requires the current one. A forgotten password is reset with a
+one-time link that is valid for an hour; only its SHA-256 hash is stored, the link's
+domain comes from configuration rather than the request, and the answer is the same
+whether the account exists or not.
+
+**Cheap live sync.** The full data set is several megabytes (over 11,000 courses).
+Instead of downloading it every 2 seconds, the frontend polls `/api/revision`
+(about 100 bytes: the database file's modification time, the latest change and
+today's date) and fetches `/api/data` only when that changes.
 
 **Finance from the operational data.** Revenue comes from each member's plan and
 pauses per month; costs are salaries plus the employer's social security share
@@ -208,8 +220,9 @@ the admin sidebar always stay gold, so the brand stays constant.
 |---|---|
 | Frontend | React 19, Vite 8, Tailwind CSS 4, shadcn, Componentry components, Framer Motion, GSAP, Leaflet, lucide icons |
 | Backend | Python 3, Flask 3, Flask-CORS, REST/JSON API |
-| Database | SQLite (18 tables with foreign keys, created and migrated automatically) |
+| Database | SQLite (19 tables with foreign keys, created and migrated automatically) |
 | Auth | Salted scrypt password hashes, HMAC-SHA256 signed bearer tokens with expiry, login rate limiting, role checks per endpoint |
+| Testing and delivery | pytest, GitHub Actions, Docker Compose (nginx + Flask) |
 | Maps and media | OpenStreetMap tiles, Unsplash photography |
 
 ## Architecture
@@ -266,14 +279,16 @@ erDiagram
 
 **Requirements:** Python 3.10+ and Node.js 20+.
 
-### Quick start (macOS / Linux)
+### Quick start with Docker
 
 ```bash
-./start_backend_mac.sh    # terminal 1: creates a venv, installs Flask, starts the API on :5000
-./start_frontend_mac.sh   # terminal 2: installs npm packages, starts Vite on :5173
+export FITAKTIV_AUTH_SECRET=$(openssl rand -hex 32)
+docker compose up --build
 ```
 
-Then open **http://localhost:5173**.
+Then open **http://localhost:8080**. The frontend is built and served by nginx,
+which also forwards `/api` to the backend; the database lives in a Docker volume.
+The first start takes a little longer while the demo data and the year's courses are generated.
 
 ### Manual setup
 
@@ -283,7 +298,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python3 app.py                    # API on http://localhost:5000
+FITAKTIV_DEBUG=1 python3 app.py   # API on http://localhost:5000 (with auto-reload)
 
 # Frontend (second terminal)
 cd frontend
@@ -307,9 +322,31 @@ delete the file and start the backend again.
 
 | Environment variable | Purpose | Default |
 |---|---|---|
-| `FITAKTIV_AUTH_SECRET` | Secret used to sign login tokens | development value |
+| `FITAKTIV_AUTH_SECRET` | Secret used to sign login tokens | development value (required in production) |
+| `FITAKTIV_ENV` | Set to `production` to refuse starting without `FITAKTIV_AUTH_SECRET` | off |
+| `FITAKTIV_DEBUG` | Set to `1` for Flask's auto-reload and debugger (local development only) | off |
+| `FITAKTIV_HOST` | Address the API listens on | `127.0.0.1` |
+| `FITAKTIV_DB` | Path of the SQLite database | `backend/fitaktiv.db` |
+| `FITAKTIV_PUBLIC_URL` | Base URL used in links in e-mails (password reset) | `http://localhost:5173` |
+| `FITAKTIV_BEHIND_PROXY` | Set to `1` behind a reverse proxy, so login limits use the real client address | off |
 | `FITAKTIV_AUTO_YEAR_COURSES` | Set to `0` to skip generating the yearly schedule | `1` |
 | `FITAKTIV_LAN` | Set to `1` to serve the frontend over HTTPS in the home network | off |
+
+### Tests
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest -q tests
+```
+
+14 API tests run against a fresh copy of a seeded demo database each: password
+hashing, login lockout, token expiry and tampering, role checks, password change
+and reset, bookings with waiting-list promotion, the replacement-trainer search
+and the revision used for live sync. GitHub Actions runs them and the frontend build on every push.
+
+In the demo, e-mails are not sent: they land in the admin's **E-Mail-Ausgang**
+(outbox), which is also where the password reset link appears.
 
 ## Demo accounts
 
@@ -369,6 +406,8 @@ Fit-Aktiv/
 ├── backend/
 │   ├── app.py              # Flask API: auth, scheduling, booking, statistics, finance
 │   ├── database.py         # schema, migrations and demo data
+│   ├── tests/              # pytest API tests
+│   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
 │   ├── public/images/      # photography and exercise photos
@@ -389,8 +428,8 @@ Fit-Aktiv/
 │   │   └── styles.css      # design system (dark theme, print styles for the BWA)
 │   └── package.json
 ├── docs/screenshots/
-├── start_backend_mac.sh
-└── start_frontend_mac.sh
+├── .github/workflows/      # CI: backend tests and frontend build
+└── compose.yaml            # Docker Compose: nginx frontend + Flask backend
 ```
 
 

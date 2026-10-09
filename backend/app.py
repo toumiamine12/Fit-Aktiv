@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import random
+import secrets
 import base64
 import hashlib
 import hmac
@@ -12,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
@@ -37,8 +39,14 @@ from database import (
 
 app = Flask(__name__)
 CORS(app)
+if os.environ.get("FITAKTIV_BEHIND_PROXY") == "1":
+    # Behind nginx (Docker): use the client address from X-Forwarded-For, so the login lockout stays per client.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
-AUTH_SECRET = os.environ.get("FITAKTIV_AUTH_SECRET", "fit-aktiv-local-dev-secret")
+PRODUCTION = os.environ.get("FITAKTIV_ENV") == "production"
+AUTH_SECRET = os.environ.get("FITAKTIV_AUTH_SECRET") or ("" if PRODUCTION else "fit-aktiv-local-dev-secret")
+if not AUTH_SECRET:
+    raise SystemExit("FITAKTIV_AUTH_SECRET must be set when FITAKTIV_ENV=production.")
 
 
 STAFF_ROLES = ["admin", "trainer"]
@@ -46,6 +54,9 @@ STAFF_ROLES = ["admin", "trainer"]
 
 TOKEN_TTL_SECONDS = 7 * 24 * 3600
 MIN_PASSWORD_LENGTH = 8
+RESET_TTL_MINUTES = 60
+# Base of the links in e-mails; never taken from the request, so a forged Host header cannot redirect them.
+PUBLIC_URL = os.environ.get("FITAKTIV_PUBLIC_URL", "http://localhost:5173").rstrip("/")
 
 
 def make_token(user_id: int, kind: str = "employee") -> str:
@@ -451,7 +462,8 @@ def get_revision() -> Dict[str, Any]:
         conn.close()
     except Exception:
         latest = None
-    return {"db_mtime": mtime, "updated_at": latest}
+    # The date is part of it so open pages reload once after midnight (today's courses, absences).
+    return {"db_mtime": mtime, "updated_at": latest, "date": date.today().isoformat()}
 
 
 @app.route("/api/health")
@@ -739,6 +751,65 @@ def login():
     return jsonify({"ok": True, "user": user, "token": make_token(user["id"], kind)})
 
 
+@app.route("/api/password-reset", methods=["POST"])
+def request_password_reset():
+    """Mails a one-time link (valid for an hour). The answer is the same whether the account exists or not."""
+    p = request.get_json(force=True) or {}
+    email = (p.get("email") or "").strip().lower()
+    kind = "member" if p.get("account_type") == "member" else "employee"
+    table = "members" if kind == "member" else "employees"
+    conn = get_db()
+    row = conn.execute(f"SELECT id, name, email FROM {table} WHERE lower(email) = ?", (email,)).fetchone()
+    if row:
+        token = secrets.token_urlsafe(32)
+        expires = (datetime.now() + timedelta(minutes=RESET_TTL_MINUTES)).isoformat(timespec="seconds")
+        conn.execute("DELETE FROM password_resets WHERE account_type = ? AND account_id = ?", (kind, row["id"]))
+        conn.execute(
+            "INSERT INTO password_resets (account_type, account_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+            (kind, row["id"], hashlib.sha256(token.encode()).hexdigest(), expires),
+        )
+        body = (
+            f"Guten Tag {row['name']},\n\nüber diesen Link können Sie ein neues Passwort festlegen "
+            f"(gültig für {RESET_TTL_MINUTES} Minuten):\n{PUBLIC_URL}/?reset={token}\n\n"
+            "Wenn Sie das nicht angefordert haben, können Sie diese E-Mail ignorieren.\n\n"
+            "Mit sportlichen Grüßen\nIhr Team von Fit & Aktiv"
+        )
+        conn.execute(
+            "INSERT INTO email_outbox (member_id, to_address, subject, body, created_at) VALUES (?, ?, ?, ?, ?)",
+            (row["id"] if kind == "member" else None, row["email"], "Passwort zurücksetzen", body, now_iso()),
+        )
+        conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/password-reset/confirm", methods=["POST"])
+def confirm_password_reset():
+    p = request.get_json(force=True) or {}
+    password = p.get("password") or ""
+    token_hash = hashlib.sha256((p.get("token") or "").encode()).hexdigest()
+    conn = get_db()
+    reset = conn.execute(
+        "SELECT * FROM password_resets WHERE token_hash = ? AND expires_at > ?",
+        (token_hash, datetime.now().isoformat(timespec="seconds")),
+    ).fetchone()
+    if not reset:
+        conn.close()
+        return json_error("Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.", 400)
+    if password_error(password):
+        conn.close()
+        return json_error(password_error(password))
+    table = "members" if reset["account_type"] == "member" else "employees"
+    conn.execute(
+        f"UPDATE {table} SET password = ?, updated_at = ? WHERE id = ?",
+        (generate_password_hash(password), now_iso(), reset["account_id"]),
+    )
+    conn.execute("DELETE FROM password_resets WHERE id = ?", (reset["id"],))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 MEMBER_PROFILE_FIELDS = ["name", "phone", "birth_date", "address", "home_studio_id"]
 # Staff may only change personal data; work data (model, qualifications, status) stays with the admin.
 EMPLOYEE_PROFILE_FIELDS = ["name", "phone", "birth_date", "address"]
@@ -803,6 +874,11 @@ def update_own_profile(table: str, allowed: List[str]):
             fields.append(f"{key} = ?")
             values.append(p[key] or None)
     if p.get("new_password"):
+        conn = get_db()
+        row = conn.execute(f"SELECT password FROM {table} WHERE id = ?", (g.current_user["id"],)).fetchone()
+        conn.close()
+        if not check_password_hash(row["password"], p.get("current_password") or ""):
+            return json_error("Das aktuelle Passwort ist falsch.", 403)
         if password_error(p["new_password"]):
             return json_error(password_error(p["new_password"]))
         fields.append("password = ?")
@@ -3285,5 +3361,10 @@ if __name__ == "__main__":
     conn.close()
     if demo_bookings:
         print(f"Demo-Mitglieder angelegt: {demo_bookings} Buchungen.")
-    # Only reachable from this computer; other devices go through the Vite dev server's /api proxy.
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # Only reachable from this computer by default; other devices go through the Vite dev server's /api proxy.
+    # FITAKTIV_DEBUG=1 turns on the reloader and the interactive debugger (never on a reachable host).
+    app.run(
+        host=os.environ.get("FITAKTIV_HOST", "127.0.0.1"),
+        port=5000,
+        debug=os.environ.get("FITAKTIV_DEBUG") == "1",
+    )

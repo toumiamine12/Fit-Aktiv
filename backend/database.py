@@ -1,3 +1,4 @@
+import os
 import random
 import sqlite3
 import re
@@ -8,7 +9,7 @@ from typing import Dict, List, Tuple
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "fitaktiv.db"
+DB_PATH = Path(os.environ.get("FITAKTIV_DB", BASE_DIR / "fitaktiv.db"))
 
 COURSE_TYPES = [
     ("Yoga", "Yoga"),
@@ -619,6 +620,15 @@ def init_db(seed: bool = True):
             preferred_date TEXT,
             message TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- One-time password reset links; only the SHA-256 of the token is stored.
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_type TEXT NOT NULL CHECK (account_type IN ('member', 'employee')),
+            account_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            expires_at TEXT NOT NULL
         );
         """
     )

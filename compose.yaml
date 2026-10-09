@@ -1,0 +1,21 @@
+# docker compose up --build  ->  http://localhost:8080
+services:
+  backend:
+    build: ./backend
+    init: true  # forwards stop signals, so "docker compose down" is instant
+    environment:
+      FITAKTIV_AUTH_SECRET: ${FITAKTIV_AUTH_SECRET:?Set FITAKTIV_AUTH_SECRET first, e.g. export FITAKTIV_AUTH_SECRET=$(openssl rand -hex 32)}
+      FITAKTIV_PUBLIC_URL: http://localhost:8080
+      FITAKTIV_BEHIND_PROXY: "1"
+    volumes:
+      - db:/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db:
