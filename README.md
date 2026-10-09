@@ -35,7 +35,6 @@ check-in, and an admin portal with statistics and a monthly finance report (BWA)
 - [Demo accounts](#demo-accounts)
 - [API overview](#api-overview)
 - [Project structure](#project-structure)
-- [What I would do next](#what-i-would-do-next)
 - [Credits](#credits)
 
 ## About the project
